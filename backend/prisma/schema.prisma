@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(RECEPTIONIST)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  RECEPTIONIST
+  DOCTOR
+}
+
+model Doctor {
+  id           String        @id @default(uuid())
+  name         String
+  specialty    String
+  phone        String?
+  email        String?       @unique
+  avatarUrl    String?
+  isActive     Boolean       @default(true)
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Patient {
+  id           String        @id @default(uuid())
+  name         String
+  phone        String
+  age          Int?
+  gender       Gender?
+  notes        String?
+  status       PatientStatus @default(ACTIVE)
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum PatientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Appointment {
+  id          String            @id @default(uuid())
+  patientId   String
+  doctorId    String
+  date        DateTime
+  reason      String?
+  status      AppointmentStatus @default(SCHEDULED)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  patient      Patient                 @relation(fields: [patientId], references: [id])
+  doctor       Doctor                  @relation(fields: [doctorId], references: [id])
+  statusEvents AppointmentStatusEvent[]
+
+  @@index([date])
+  @@index([doctorId])
+  @@index([patientId])
+  @@index([status])
+}
+
+model AppointmentStatusEvent {
+  id            String            @id @default(uuid())
+  appointmentId String
+  fromStatus    AppointmentStatus?
+  toStatus      AppointmentStatus
+  changedAt     DateTime          @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId, changedAt])
+  @@index([toStatus])
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}

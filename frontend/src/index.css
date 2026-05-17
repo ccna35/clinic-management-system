@@ -1,0 +1,114 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Sora:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color: #1e293b;
+    background-color: #f3f4f6;
+  }
+
+  * {
+    @apply border-slate-200/70;
+  }
+
+  body {
+    @apply min-h-screen bg-slate-100 text-slate-900 antialiased;
+    font-family: "DM Sans", sans-serif;
+    background-image: none;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: "Sora", sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes soft-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0.6;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@layer utilities {
+  .animate-fade-up {
+    animation: fade-up 0.45s ease-out both;
+  }
+
+  .animate-soft-in {
+    animation: soft-in 0.35s ease-out both;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.28s ease-out both;
+  }
+
+  .stagger-1 {
+    animation-delay: 0.05s;
+  }
+
+  .stagger-2 {
+    animation-delay: 0.1s;
+  }
+
+  .stagger-3 {
+    animation-delay: 0.15s;
+  }
+
+  .stagger-4 {
+    animation-delay: 0.2s;
+  }
+
+  table[data-density="compact"] th {
+    height: 2.25rem;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+  }
+
+  table[data-density="compact"] td {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+
+  table[data-density="comfortable"] th {
+    height: 2.5rem;
+  }
+
+  table[data-density="comfortable"] td {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+}
