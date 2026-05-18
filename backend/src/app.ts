@@ -8,6 +8,7 @@ import { authRouter } from "./modules/auth/auth.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { doctorsRouter } from "./modules/doctors/doctors.routes";
 import { patientsRouter } from "./modules/patients/patients.routes";
+import { receptionistsRouter } from "./modules/receptionists/receptionists.routes";
 
 export const app = express();
 
@@ -39,6 +40,7 @@ app.use("/api/dashboard", dashboardRouter);
 app.use("/api/patients", patientsRouter);
 app.use("/api/doctors", doctorsRouter);
 app.use("/api/appointments", appointmentsRouter);
+app.use("/api/receptionists", receptionistsRouter);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

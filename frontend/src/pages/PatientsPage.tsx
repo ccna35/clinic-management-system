@@ -5,13 +5,14 @@ import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { api } from "../api/client";
+import { api, getErrorMessage } from "../api/client";
 import type { ApiListResponse, ApiResponse } from "../api/client";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
@@ -35,6 +36,7 @@ import {
   TableRow,
 } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
+import { Link } from "react-router-dom";
 
 interface Patient {
   id: string;
@@ -119,8 +121,8 @@ export function PatientsPage() {
       reset(defaultPatientValues);
       await queryClient.invalidateQueries({ queryKey: ["patients"] });
     },
-    onError: () => {
-      toast.error("Could not create patient");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not create patient"));
     },
   });
 
@@ -146,8 +148,8 @@ export function PatientsPage() {
       reset(defaultPatientValues);
       await queryClient.invalidateQueries({ queryKey: ["patients"] });
     },
-    onError: () => {
-      toast.error("Could not update patient");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not update patient"));
     },
   });
 
@@ -167,7 +169,8 @@ export function PatientsPage() {
       );
       await queryClient.invalidateQueries({ queryKey: ["patients"] });
     },
-    onError: () => toast.error("Status change failed"),
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Status change failed")),
   });
 
   function openCreateModal(): void {
@@ -218,27 +221,39 @@ export function PatientsPage() {
   return (
     <div className="animate-soft-in space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-blue-100 bg-blue-50">
-          <Plus className="h-8 w-8 text-blue-700 mb-1" />
-          <div className="text-xs font-semibold uppercase text-blue-700">
-            Total Patients
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+            <Plus className="h-5 w-5 text-blue-600" />
           </div>
-          <div className="text-2xl font-bold text-blue-900">{total}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Total Patients
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{total}</p>
+          </div>
         </Card>
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-emerald-100 bg-emerald-50">
-          <Power className="h-8 w-8 text-emerald-600 mb-1" />
-          <div className="text-xs font-semibold uppercase text-emerald-700">
-            Active
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+            <Power className="h-5 w-5 text-emerald-600" />
           </div>
-          <div className="text-2xl font-bold text-emerald-900">{active}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Active
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{active}</p>
+          </div>
         </Card>
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-slate-200 bg-slate-50">
-          <Power className="h-8 w-8 text-slate-500 mb-1" />
-          <div className="text-xs font-semibold uppercase text-slate-700">
-            Inactive
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100">
+            <Power className="h-5 w-5 text-slate-500" />
           </div>
-          <div className="text-2xl font-bold text-slate-900">{inactive}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Inactive
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{inactive}</p>
+          </div>
         </Card>
       </div>
 
@@ -250,11 +265,14 @@ export function PatientsPage() {
         </Button>
       </div>
 
-      <Card className="animate-fade-up rounded-md stagger-2">
+      <Card className="animate-fade-up stagger-2">
         <CardHeader>
           <CardTitle>Patient List</CardTitle>
+          <CardDescription>
+            {patientsQuery.data?.length ?? 0} patients total
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-5">
           {patientsQuery.isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -289,8 +307,8 @@ export function PatientsPage() {
                         {patient.name}
                       </TableCell>
                       <TableCell>{patient.phone}</TableCell>
-                      <TableCell>{patient.gender ?? "-"}</TableCell>
-                      <TableCell>{patient.age ?? "-"}</TableCell>
+                      <TableCell>{patient.gender ?? "—"}</TableCell>
+                      <TableCell>{patient.age ?? "—"}</TableCell>
                       <TableCell>
                         <Badge
                           variant={
@@ -304,6 +322,12 @@ export function PatientsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
+                          <Link
+                            to={`/patients/${patient.id}`}
+                            className="inline-flex items-center rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                          >
+                            View Details
+                          </Link>
                           <Button
                             type="button"
                             size="sm"
@@ -322,7 +346,6 @@ export function PatientsPage() {
                                 setConfirmPatient(patient);
                                 return;
                               }
-
                               statusMutation.mutate(patient);
                             }}
                             disabled={statusMutation.isPending}

@@ -213,6 +213,34 @@ async function ensureNoDoctorTimeConflict(
     }
 }
 
+async function ensureNoPatientTimeConflict(
+    patientId: string,
+    date: Date,
+    currentAppointmentId?: string
+): Promise<void> {
+    const conflict = await prisma.appointment.findFirst({
+        where: {
+            patientId,
+            date,
+            ...(currentAppointmentId
+                ? {
+                    id: {
+                        not: currentAppointmentId
+                    }
+                }
+                : {}),
+            status: {
+                in: [AppointmentStatus.SCHEDULED, AppointmentStatus.WAITING, AppointmentStatus.IN_PROGRESS]
+            }
+        },
+        select: { id: true }
+    });
+
+    if (conflict) {
+        throw new ApiError(409, "Patient already has an appointment at this time");
+    }
+}
+
 export async function listAppointments(query: ListAppointmentsQuery): Promise<{
     data: AppointmentResponse[],
     meta: { total: number; page: number; limit: number }
@@ -261,6 +289,7 @@ export async function createAppointment(
 ): Promise<AppointmentResponse> {
     await Promise.all([ensurePatientExists(payload.patientId), ensureDoctorExists(payload.doctorId)]);
     await ensureNoDoctorTimeConflict(payload.doctorId, payload.date);
+    await ensureNoPatientTimeConflict(payload.patientId, payload.date);
 
     const appointment = await prisma.$transaction(async (tx) => {
         const created = await tx.appointment.create({
@@ -310,6 +339,7 @@ export async function updateAppointment(
 
     await Promise.all([ensurePatientExists(nextPatientId), ensureDoctorExists(nextDoctorId)]);
     await ensureNoDoctorTimeConflict(nextDoctorId, nextDate, existing.id);
+    await ensureNoPatientTimeConflict(nextPatientId, nextDate, existing.id);
 
     if (payload.status) {
         assertValidStatusTransition(existing.status, payload.status);

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { api } from "../api/client";
+import { api, getErrorMessage } from "../api/client";
 import type { ApiListResponse, ApiResponse } from "../api/client";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -100,14 +100,6 @@ type PatientFormState = {
   gender: "MALE" | "FEMALE";
   notes: string;
 };
-
-const statCardTones = [
-  "bg-white",
-  "bg-white",
-  "bg-white",
-  "bg-white",
-  "bg-white",
-];
 
 function statusVariant(
   status: string,
@@ -415,8 +407,10 @@ export function DashboardPage() {
         queryClient.invalidateQueries({ queryKey: ["appointments"] }),
       ]);
     },
-    onError: () => {
-      toast.error("Check-in failed", { description: "Please try again." });
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Check-in failed"), {
+        description: "Please try again.",
+      });
     },
   });
 
@@ -447,8 +441,8 @@ export function DashboardPage() {
         queryClient.invalidateQueries({ queryKey: ["patients"] }),
       ]);
     },
-    onError: () => {
-      toast.error("Could not add patient");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not add patient"));
     },
   });
 
@@ -475,8 +469,8 @@ export function DashboardPage() {
         queryClient.invalidateQueries({ queryKey: ["appointments"] }),
       ]);
     },
-    onError: () => {
-      toast.error("Could not book appointment");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not book appointment"));
     },
   });
 
@@ -500,8 +494,8 @@ export function DashboardPage() {
         queryClient.invalidateQueries({ queryKey: ["appointments"] }),
       ]);
     },
-    onError: () => {
-      toast.error("No-show update failed");
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "No-show update failed"));
     },
   });
 
@@ -602,14 +596,14 @@ export function DashboardPage() {
 
       <Card className="animate-fade-up rounded-md stagger-1">
         <CardHeader>
-          <h3 className="text-lg font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-slate-900">
             Quick Actions
           </h3>
           <CardDescription>
             Run front-desk workflows directly from this dashboard.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <Button type="button" onClick={() => setAddPatientOpen(true)}>
               <UserPlus className="mr-2 h-4 w-4" />
@@ -655,39 +649,43 @@ export function DashboardPage() {
         {summaryCards.map((item, index) => (
           <Card
             key={item.label}
-            className={`animate-fade-up border border-slate-200 ${statCardTones[index]} rounded-md stagger-${index + 1}`}
+            className={`animate-fade-up stagger-${index + 1} flex items-center gap-4 p-5`}
           >
-            <CardHeader className="pb-1">
-              <CardDescription className="flex items-center gap-2 text-xs uppercase tracking-wide">
-                <item.icon className="h-4 w-4 text-blue-700" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+              <item.icon className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">
                 {item.label}
-              </CardDescription>
+              </p>
               {summaryQuery.isLoading ? (
-                <Skeleton className="h-10 w-20" />
+                <Skeleton className="mt-1 h-7 w-16" />
               ) : (
                 <>
-                  <p className="text-4xl font-bold text-slate-900">
+                  <p className="text-2xl font-bold text-slate-900">
                     {item.value}
                   </p>
                   {item.note ? (
-                    <p className="mt-1 text-xs text-slate-600">{item.note}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-400">
+                      {item.note}
+                    </p>
                   ) : null}
                 </>
               )}
-            </CardHeader>
+            </div>
           </Card>
         ))}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="animate-fade-up rounded-md stagger-2 xl:col-span-1">
+        <Card className="animate-fade-up stagger-2 xl:col-span-1">
           <CardHeader>
-            <h3 className="text-xl font-semibold text-slate-900">
+            <h3 className="text-base font-semibold text-slate-900">
               Live Waiting Queue
             </h3>
             <CardDescription>{selectedDateLabel}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pt-5">
             {isBusy ? (
               <div className="space-y-2">
                 <Skeleton className="h-10 w-full" />
@@ -733,16 +731,16 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-up rounded-md stagger-3 xl:col-span-2">
+        <Card className="animate-fade-up stagger-3 xl:col-span-2">
           <CardHeader>
-            <h3 className="text-xl font-semibold text-slate-900">
+            <h3 className="text-base font-semibold text-slate-900">
               Next 60 Minutes
             </h3>
             <CardDescription>
               Upcoming activity for selected date.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 pt-5">
             {isBusy ? (
               <div className="space-y-2">
                 <Skeleton className="h-10 w-full" />
@@ -785,14 +783,16 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="animate-fade-up rounded-md stagger-4">
+      <Card className="animate-fade-up stagger-4">
         <CardHeader>
-          <h3 className="text-xl font-semibold text-slate-900">Alert Center</h3>
+          <h3 className="text-base font-semibold text-slate-900">
+            Alert Center
+          </h3>
           <CardDescription>
             Operational exceptions that need attention.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-5">
           {isBusy ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -810,28 +810,28 @@ export function DashboardPage() {
             ? alertItems.map((item, index) => (
                 <div
                   key={`${item.level}-${index}`}
-                  className="flex items-start gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3"
+                  className="flex items-start gap-3 rounded-xl border border-app-outline-variant/40 bg-app-surface-low px-3 py-3"
                 >
                   <AlertTriangle
                     className={`mt-0.5 h-4 w-4 ${item.level === "high" ? "text-rose-600" : "text-amber-600"}`}
                   />
-                  <p className="text-sm text-slate-700">{item.message}</p>
+                  <p className="text-[13px] text-app-text">{item.message}</p>
                 </div>
               ))
             : null}
         </CardContent>
       </Card>
 
-      <Card className="animate-fade-up rounded-md stagger-4">
+      <Card className="animate-fade-up stagger-4">
         <CardHeader>
-          <h3 className="text-xl font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-app-text">
             Today Schedule
           </h3>
           <CardDescription>
             Full table sourced from today schedule endpoint.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-5">
           {scheduleQuery.isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />
@@ -840,7 +840,7 @@ export function DashboardPage() {
             </div>
           ) : null}
           {!scheduleQuery.isLoading && !scheduleQuery.data?.length ? (
-            <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-[13px] text-app-text-muted">
               No appointments scheduled today.
             </p>
           ) : null}
@@ -868,7 +868,7 @@ export function DashboardPage() {
                       <TableCell>{item.patient.name}</TableCell>
                       <TableCell>
                         {item.doctor.name}{" "}
-                        <span className="text-xs text-slate-500">
+                        <span className="text-[11px] text-app-text-muted">
                           ({item.doctor.specialty})
                         </span>
                       </TableCell>
@@ -899,7 +899,7 @@ export function DashboardPage() {
         <div className="space-y-4">
           <div className="space-y-2">
             <label
-              className="text-sm font-medium text-slate-700"
+              className="text-[13px] font-semibold text-app-text-muted"
               htmlFor="check-in-search"
             >
               Search patient or doctor
@@ -921,13 +921,13 @@ export function DashboardPage() {
           ) : null}
 
           {!isBusy && !checkInCandidates.length ? (
-            <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-[13px] text-app-text-muted">
               No scheduled appointments available for check-in on selected date.
             </p>
           ) : null}
 
           {!isBusy && checkInCandidates.length ? (
-            <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <div className="overflow-x-auto rounded-2xl border border-app-outline-variant/40">
               <Table density="compact">
                 <TableHeader>
                   <TableRow>
@@ -951,7 +951,7 @@ export function DashboardPage() {
                       </TableCell>
                       <TableCell>
                         {item.doctor.name}{" "}
-                        <span className="text-xs text-slate-500">
+                        <span className="text-[11px] text-app-text-muted">
                           ({item.doctor.specialty})
                         </span>
                       </TableCell>
@@ -1228,13 +1228,13 @@ export function DashboardPage() {
           ) : null}
 
           {!isBusy && !noShowCandidates.length ? (
-            <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-[13px] text-app-text-muted">
               No appointments available for no-show action on selected date.
             </p>
           ) : null}
 
           {!isBusy && noShowCandidates.length ? (
-            <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <div className="overflow-x-auto rounded-2xl border border-app-outline-variant/40">
               <Table density="compact">
                 <TableHeader>
                   <TableRow>
@@ -1258,7 +1258,7 @@ export function DashboardPage() {
                       </TableCell>
                       <TableCell>
                         {item.doctor.name}{" "}
-                        <span className="text-xs text-slate-500">
+                        <span className="text-[11px] text-app-text-muted">
                           ({item.doctor.specialty})
                         </span>
                       </TableCell>
@@ -1329,14 +1329,14 @@ export function DashboardPage() {
 
           {!doctorsDirectoryQuery.isLoading &&
           !filteredDoctorsDirectory.length ? (
-            <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-[13px] text-app-text-muted">
               No doctors found.
             </p>
           ) : null}
 
           {!doctorsDirectoryQuery.isLoading &&
           filteredDoctorsDirectory.length ? (
-            <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <div className="overflow-x-auto rounded-2xl border border-app-outline-variant/40">
               <Table density="compact">
                 <TableHeader>
                   <TableRow>

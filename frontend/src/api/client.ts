@@ -48,3 +48,21 @@ export interface ApiListResponse<T> {
         limit: number;
     };
 }
+
+export function getErrorMessage(error: unknown, fallback: string): string {
+    if (
+        error != null &&
+        typeof error === "object" &&
+        "response" in error &&
+        error.response != null &&
+        typeof error.response === "object" &&
+        "data" in error.response &&
+        error.response.data != null &&
+        typeof error.response.data === "object" &&
+        "message" in error.response.data &&
+        typeof (error.response.data as { message?: unknown }).message === "string"
+    ) {
+        return (error.response.data as { message: string }).message;
+    }
+    return fallback;
+}

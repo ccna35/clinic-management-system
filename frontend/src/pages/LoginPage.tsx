@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
+import { getErrorMessage } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Button } from "../components/ui/button";
 import {
@@ -54,11 +55,10 @@ export function LoginPage() {
       setSuccessMessage("Login successful. Redirecting...");
       toast.success("Welcome back", { description: "You are now signed in." });
       navigate("/dashboard", { replace: true });
-    } catch {
+    } catch (error) {
+      const msg = getErrorMessage(error, "Please verify email and password.");
       setError("Login failed. Please check credentials.");
-      toast.error("Login failed", {
-        description: "Please verify email and password.",
-      });
+      toast.error("Login failed", { description: msg });
     }
   }
 
@@ -156,6 +156,10 @@ export function LoginPage() {
 
                 <p className="text-xs text-slate-500">
                   Demo: reception@clinic.com / password123
+                </p>
+
+                <p className="text-xs text-slate-500">
+                  Admin Demo: admin@clinic.com / password123
                 </p>
               </form>
             </CardContent>

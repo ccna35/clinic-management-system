@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
+import { AdminRoute } from "./components/AdminRoute";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const LoginPage = lazy(() =>
@@ -26,6 +27,8 @@ const AppointmentsPage = lazy(() =>
     default: module.AppointmentsPage,
   })),
 );
+const PatientDetailsPage = lazy(() => import("./pages/PatientDetailsPage"));
+const ReceptionistsPage = lazy(() => import("./pages/ReceptionistsPage"));
 
 function RouteFallback() {
   return (
@@ -48,8 +51,12 @@ function App() {
           <Route element={<AppShell />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/patients" element={<PatientsPage />} />
+            <Route path="/patients/:id" element={<PatientDetailsPage />} />
             <Route path="/doctors" element={<DoctorsPage />} />
             <Route path="/appointments" element={<AppointmentsPage />} />
+            <Route element={<AdminRoute />}>
+              <Route path="/receptionists" element={<ReceptionistsPage />} />
+            </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Route>

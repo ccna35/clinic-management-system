@@ -9,6 +9,16 @@ export interface AuthenticatedRequest extends Request {
     };
 }
 
+export function requireRole(roles: string[]) {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
+        if (!req.user || !roles.includes(req.user.role)) {
+            next(new ApiError(403, "Forbidden"));
+            return;
+        }
+        next();
+    };
+}
+
 export function requireAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
     const authHeader = req.headers.authorization;
 

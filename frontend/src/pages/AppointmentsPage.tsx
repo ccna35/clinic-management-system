@@ -1,17 +1,27 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarRange, Pencil, Plus, RefreshCcw, Trash2 } from "lucide-react";
+import {
+  CalendarRange,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCcw,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { api } from "../api/client";
+import { api, getErrorMessage } from "../api/client";
 import type { ApiListResponse, ApiResponse } from "../api/client";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
@@ -305,7 +315,8 @@ export function AppointmentsPage() {
       reset(defaultAppointmentValues);
       await queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
-    onError: () => toast.error("Could not create appointment"),
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not create appointment")),
   });
 
   const updateMutation = useMutation({
@@ -330,7 +341,8 @@ export function AppointmentsPage() {
       reset(defaultAppointmentValues);
       await queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
-    onError: () => toast.error("Could not update appointment"),
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update appointment")),
   });
 
   const statusMutation = useMutation({
@@ -351,7 +363,8 @@ export function AppointmentsPage() {
       setStatusAppointment(null);
       await queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
-    onError: () => toast.error("Could not update status"),
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update status")),
   });
 
   const deleteMutation = useMutation({
@@ -360,7 +373,8 @@ export function AppointmentsPage() {
       toast.success("Appointment deleted");
       await queryClient.invalidateQueries({ queryKey: ["appointments"] });
     },
-    onError: () => toast.error("Could not delete appointment"),
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not delete appointment")),
   });
 
   function openCreateModal(): void {
@@ -452,61 +466,61 @@ export function AppointmentsPage() {
   return (
     <div className="animate-soft-in space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-blue-100 bg-blue-50">
-          <Plus className="h-8 w-8 text-blue-700 mb-1" />
-          <div className="text-xs font-semibold uppercase text-blue-700">
-            Total
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+            <CalendarRange className="h-5 w-5 text-blue-600" />
           </div>
-          <div className="text-2xl font-bold text-blue-900">{total}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Total
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{total}</p>
+          </div>
         </Card>
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-slate-200 bg-slate-50">
-          <Badge
-            variant="scheduled"
-            className="h-8 w-8 flex items-center justify-center mb-1"
-          >
-            S
-          </Badge>
-          <div className="text-xs font-semibold uppercase text-blue-700">
-            Scheduled
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+            <CalendarRange className="h-5 w-5 text-blue-500" />
           </div>
-          <div className="text-2xl font-bold text-blue-900">{scheduled}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Scheduled
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{scheduled}</p>
+          </div>
         </Card>
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-amber-100 bg-amber-50">
-          <Badge
-            variant="waiting"
-            className="h-8 w-8 flex items-center justify-center mb-1"
-          >
-            W
-          </Badge>
-          <div className="text-xs font-semibold uppercase text-amber-700">
-            Waiting
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50">
+            <Clock className="h-5 w-5 text-amber-500" />
           </div>
-          <div className="text-2xl font-bold text-amber-900">{waiting}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Waiting
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{waiting}</p>
+          </div>
         </Card>
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-indigo-100 bg-indigo-50">
-          <Badge
-            variant="inprogress"
-            className="h-8 w-8 flex items-center justify-center mb-1"
-          >
-            IP
-          </Badge>
-          <div className="text-xs font-semibold uppercase text-indigo-700">
-            In Progress
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
+            <Loader2 className="h-5 w-5 text-indigo-500" />
           </div>
-          <div className="text-2xl font-bold text-indigo-900">{inprogress}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              In Progress
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{inprogress}</p>
+          </div>
         </Card>
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-emerald-100 bg-emerald-50">
-          <Badge
-            variant="completed"
-            className="h-8 w-8 flex items-center justify-center mb-1"
-          >
-            C
-          </Badge>
-          <div className="text-xs font-semibold uppercase text-emerald-700">
-            Completed
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
           </div>
-          <div className="text-2xl font-bold text-emerald-900">{completed}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Completed
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{completed}</p>
+          </div>
         </Card>
       </div>
 
@@ -518,14 +532,17 @@ export function AppointmentsPage() {
         </Button>
       </div>
 
-      <Card className="animate-fade-up rounded-md stagger-1">
+      <Card className="animate-fade-up stagger-1">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CalendarRange className="h-5 w-5 text-blue-700" />
+            <CalendarRange className="h-4 w-4 text-blue-600" />
             Appointment List
           </CardTitle>
+          <CardDescription>
+            {appointmentsQuery.data?.length ?? 0} appointments total
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-5">
           <div className="max-w-xs space-y-2">
             <Label>Status Filter</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>

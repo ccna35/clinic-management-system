@@ -5,13 +5,14 @@ import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { api } from "../api/client";
+import { api, getErrorMessage } from "../api/client";
 import type { ApiListResponse, ApiResponse } from "../api/client";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "../components/ui/card";
@@ -105,7 +106,8 @@ export function DoctorsPage() {
       reset(defaultDoctorValues);
       await queryClient.invalidateQueries({ queryKey: ["doctors"] });
     },
-    onError: () => toast.error("Could not create doctor"),
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not create doctor")),
   });
 
   const updateDoctorMutation = useMutation({
@@ -130,7 +132,8 @@ export function DoctorsPage() {
       reset(defaultDoctorValues);
       await queryClient.invalidateQueries({ queryKey: ["doctors"] });
     },
-    onError: () => toast.error("Could not update doctor"),
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update doctor")),
   });
 
   const statusMutation = useMutation({
@@ -145,7 +148,8 @@ export function DoctorsPage() {
       );
       await queryClient.invalidateQueries({ queryKey: ["doctors"] });
     },
-    onError: () => toast.error("Status change failed"),
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Status change failed")),
   });
 
   function openCreateModal(): void {
@@ -195,27 +199,39 @@ export function DoctorsPage() {
   return (
     <div className="animate-soft-in space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-blue-100 bg-blue-50">
-          <Stethoscope className="h-8 w-8 text-blue-700 mb-1" />
-          <div className="text-xs font-semibold uppercase text-blue-700">
-            Total Doctors
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+            <Stethoscope className="h-5 w-5 text-blue-600" />
           </div>
-          <div className="text-2xl font-bold text-blue-900">{total}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Total Doctors
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{total}</p>
+          </div>
         </Card>
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-emerald-100 bg-emerald-50">
-          <Power className="h-8 w-8 text-emerald-600 mb-1" />
-          <div className="text-xs font-semibold uppercase text-emerald-700">
-            Active
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+            <Power className="h-5 w-5 text-emerald-600" />
           </div>
-          <div className="text-2xl font-bold text-emerald-900">{active}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Active
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{active}</p>
+          </div>
         </Card>
-        <Card className="flex flex-col items-center justify-center gap-2 py-6 border-slate-200 bg-slate-50">
-          <Power className="h-8 w-8 text-slate-500 mb-1" />
-          <div className="text-xs font-semibold uppercase text-slate-700">
-            Inactive
+        <Card className="flex items-center gap-4 p-5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100">
+            <Power className="h-5 w-5 text-slate-500" />
           </div>
-          <div className="text-2xl font-bold text-slate-900">{inactive}</div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Inactive
+            </p>
+            <p className="text-2xl font-bold text-slate-900">{inactive}</p>
+          </div>
         </Card>
       </div>
 
@@ -227,14 +243,17 @@ export function DoctorsPage() {
         </Button>
       </div>
 
-      <Card className="animate-fade-up rounded-md stagger-1">
+      <Card className="animate-fade-up stagger-1">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Stethoscope className="h-5 w-5 text-blue-700" />
+            <Stethoscope className="h-4 w-4 text-blue-600" />
             Doctor List
           </CardTitle>
+          <CardDescription>
+            {doctorsQuery.data?.length ?? 0} doctors total
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-5">
           {doctorsQuery.isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full" />

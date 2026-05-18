@@ -43,6 +43,22 @@ async function main(): Promise<void> {
         }
     });
 
+    // insert an admin user for testing purposes
+    await prisma.user.upsert({
+        where: { email: "admin@clinic.com" },
+        update: {
+            name: "Admin Demo",
+            password: passwordHash,
+            role: Role.ADMIN
+        },
+        create: {
+            name: "Admin Demo",
+            email: "admin@clinic.com",
+            password: passwordHash,
+            role: Role.ADMIN
+        }
+    });
+
     for (const doctor of doctorsSeed) {
         await prisma.doctor.upsert({
             where: { email: doctor.email },
