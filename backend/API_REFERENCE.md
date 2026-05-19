@@ -132,6 +132,8 @@ Query params:
 page (default 1)
 limit (default 10)
 date (YYYY-MM-DD)
+dateFrom (YYYY-MM-DD)
+dateTo (YYYY-MM-DD)
 status (SCHEDULED | WAITING | IN_PROGRESS | COMPLETED | CANCELLED | NO_SHOW)
 doctorId (uuid)
 patientId (uuid)
@@ -162,6 +164,7 @@ Rules:
 - Patient must exist and be ACTIVE.
 - Doctor must exist and be active.
 - Conflict prevention: doctor cannot have another SCHEDULED or WAITING appointment at the exact same datetime.
+- Terminal appointments (COMPLETED, CANCELLED, NO_SHOW) are locked against date rescheduling.
 - Status transitions are enforced as:
   - SCHEDULED -> WAITING | CANCELLED | NO_SHOW
   - WAITING -> IN_PROGRESS | CANCELLED | NO_SHOW

@@ -3,6 +3,7 @@ import {
   CalendarCheck2,
   CalendarClock,
   Clock4,
+  Play,
   RefreshCw,
   Stethoscope,
   UserPlus,
@@ -232,36 +233,46 @@ export function DashboardPage() {
   const summaryCards = useMemo(
     () => [
       {
-        label: "Today Appointments",
+        label: "Appointments",
+        caption: "Booked",
         icon: CalendarCheck2,
+        tone: "appointments",
         value: summaryQuery.data
           ? String(summaryQuery.data.todayAppointments)
           : "-",
       },
       {
-        label: "Waiting Patients",
+        label: "Waiting",
+        caption: "In queue",
         icon: Clock4,
+        tone: "waiting",
         value: summaryQuery.data
           ? String(summaryQuery.data.waitingPatients)
           : "-",
       },
       {
-        label: "Completed Visits",
+        label: "Completed",
+        caption: "Closed today",
         icon: Users,
+        tone: "completed",
         value: summaryQuery.data
           ? String(summaryQuery.data.completedVisits)
           : "-",
       },
       {
-        label: "Cancelled / No Show",
+        label: "No-shows / Canceled",
+        caption: "Missed slots",
         icon: Stethoscope,
+        tone: "risk",
         value: summaryQuery.data
           ? String(summaryQuery.data.cancelledOrNoShows)
           : "-",
       },
       {
-        label: "Avg Wait Before Doctor",
+        label: "Avg Wait",
+        caption: "Before doctor",
         icon: CalendarClock,
+        tone: "latency",
         value:
           summaryQuery.data?.averageActualWaitMinutes !== null &&
           summaryQuery.data?.averageActualWaitMinutes !== undefined
@@ -278,12 +289,16 @@ export function DashboardPage() {
   );
 
   const nextHourTimeline = useMemo(() => {
-    const now = Date.now();
-    const oneHourFromNow = now + 60 * 60 * 1000;
+    if (!selectedDateAppointments.length) {
+      return [];
+    }
+
+    const startTime = new Date(selectedDateAppointments[0].date).getTime();
+    const windowEnd = startTime + 60 * 60 * 1000;
 
     return selectedDateAppointments.filter((item) => {
       const appointmentTime = new Date(item.date).getTime();
-      return appointmentTime >= now && appointmentTime <= oneHourFromNow;
+      return appointmentTime >= startTime && appointmentTime <= windowEnd;
     });
   }, [selectedDateAppointments]);
 
@@ -322,6 +337,14 @@ export function DashboardPage() {
 
     return alerts;
   }, [selectedDateAppointments, waitingQueue]);
+
+  const shouldBoostCheckIn = useMemo(() => {
+    const hasLongWait = waitingQueue.some(
+      (item) => item.waitMinutes !== null && item.waitMinutes >= 20,
+    );
+
+    return hasLongWait || waitingQueue.length >= 3;
+  }, [waitingQueue]);
 
   const selectedDateLabel = useMemo(() => {
     return new Date(`${selectedDate}T00:00:00`).toLocaleDateString([], {
@@ -411,6 +434,33 @@ export function DashboardPage() {
       toast.error(getErrorMessage(error, "Check-in failed"), {
         description: "Please try again.",
       });
+    },
+  });
+
+  const inProgressMutation = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      return api.patch<ApiResponse<AppointmentFeedItem>>(
+        `/api/appointments/${appointmentId}/status`,
+        {
+          status: "IN_PROGRESS",
+        },
+      );
+    },
+    onSuccess: async () => {
+      toast.success("Consultation started", {
+        description: "Patient moved to in-progress status.",
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-schedule"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["dashboard-appointments-feed"],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["appointments"] }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not update appointment"));
     },
   });
 
@@ -538,229 +588,378 @@ export function DashboardPage() {
   }
 
   const isBusy = scheduleQuery.isLoading || appointmentsFeedQuery.isLoading;
+  const completedCount =
+    selectedDateAppointments.filter((item) => item.status === "COMPLETED").length;
+  const inProgressCount =
+    selectedDateAppointments.filter((item) => item.status === "IN_PROGRESS").length;
+  const scheduledCount =
+    selectedDateAppointments.filter((item) => item.status === "SCHEDULED").length;
+  const totalForDate = selectedDateAppointments.length;
+  const completionRate =
+    totalForDate > 0 ? Math.round((completedCount / totalForDate) * 100) : 0;
+  const maxWaitMinutes = waitingQueue.reduce(
+    (max, item) => Math.max(max, item.waitMinutes ?? 0),
+    0,
+  );
+  const distributionRows = [
+    {
+      label: "Scheduled",
+      value: scheduledCount,
+      tone: "bg-slate-400",
+    },
+    {
+      label: "Waiting",
+      value: waitingQueue.length,
+      tone: "bg-amber-500",
+    },
+    {
+      label: "In Progress",
+      value: inProgressCount,
+      tone: "bg-indigo-500",
+    },
+    {
+      label: "Completed",
+      value: completedCount,
+      tone: "bg-emerald-500",
+    },
+  ];
+  const distributionMax = Math.max(
+    1,
+    ...distributionRows.map((row) => row.value),
+  );
+  const heroHighlights = [
+    {
+      label: "Load",
+      value: `${totalForDate}`,
+      tone: "neutral" as const,
+    },
+    {
+      label: "Waiting",
+      value: `${waitingQueue.length}`,
+      tone: waitingQueue.length > 0 ? ("warn" as const) : ("neutral" as const),
+    },
+    {
+      label: "Critical Alerts",
+      value: `${alertItems.length}`,
+      tone: alertItems.some((item) => item.level === "high")
+        ? ("critical" as const)
+        : ("neutral" as const),
+    },
+    {
+      label: "Flow",
+      value: `${completionRate}%`,
+      tone: completionRate >= 65 ? ("good" as const) : ("neutral" as const),
+    },
+  ];
 
   return (
-    <div className="animate-soft-in space-y-6">
-      <div className="animate-fade-up rounded-md border border-slate-200 bg-white p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">
-              Operations overview
+    <div className="dashboard-exec animate-soft-in space-y-5 lg:space-y-6">
+      <section className="exec-hero animate-fade-up">
+        <div className="exec-hero-grid">
+          <div className="exec-hero-heading">
+            <p className="exec-kicker">Clinic operations</p>
+            <h2 className="exec-title">Reception Command Center</h2>
+            <p className="exec-subtitle">
+              Designed for fast front-desk decisions with low visual noise.
             </p>
-            <h2 className="mt-2 text-3xl font-semibold text-slate-900">
-              Dashboard
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Live clinic metrics for the reception desk.
-            </p>
+
+            <div className="exec-highlight-row">
+              {heroHighlights.map((highlight) => (
+                <div
+                  key={highlight.label}
+                  className={`exec-highlight-chip exec-highlight-${highlight.tone}`}
+                >
+                  <span className="exec-highlight-label">{highlight.label}</span>
+                  <span className="exec-highlight-value">{highlight.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setRelativeDate(0)}
-            >
-              Today
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setRelativeDate(1)}
-            >
-              Tomorrow
-            </Button>
+          <div className="exec-hero-controls">
+            <p className="exec-controls-label">Day Context</p>
+            <div className="exec-date-switch">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="exec-control-btn"
+                onClick={() => setRelativeDate(0)}
+              >
+                Today
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="exec-control-btn"
+                onClick={() => setRelativeDate(1)}
+              >
+                Tomorrow
+              </Button>
+            </div>
             <Input
               type="date"
-              className="h-9 w-[170px]"
+              className="h-9 border-slate-300/80 bg-white/85"
               value={selectedDate}
               onChange={(event) => setSelectedDate(event.target.value)}
             />
+            <div className="rounded-lg border border-slate-200/80 bg-white/75 px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Selected date
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-800">
+                {selectedDateLabel}
+              </p>
+            </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
+              className="exec-control-btn"
               onClick={refreshDashboard}
               disabled={refreshing}
             >
               <RefreshCw
                 className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
               />
-              Refresh
+              Refresh Dashboard
             </Button>
           </div>
         </div>
-      </div>
 
-      <Card className="animate-fade-up rounded-md stagger-1">
-        <CardHeader>
-          <h3 className="text-base font-semibold text-slate-900">
-            Quick Actions
-          </h3>
-          <CardDescription>
-            Run front-desk workflows directly from this dashboard.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-5">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <Button type="button" onClick={() => setAddPatientOpen(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add Patient
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setBookAppointmentOpen(true)}
-            >
-              <CalendarClock className="mr-2 h-4 w-4" />
-              Book Appointment
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setCheckInOpen(true)}
-            >
-              <UserRoundCheck className="mr-2 h-4 w-4" />
-              Check-in Patient
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setNoShowOpen(true)}
-            >
-              <Workflow className="mr-2 h-4 w-4" />
-              Mark No-show
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setViewDoctorsOpen(true)}
-            >
-              <Stethoscope className="mr-2 h-4 w-4" />
-              View Doctors
-            </Button>
+        <div className="exec-action-zone">
+          <div className="exec-action-panel">
+            <p className="exec-action-label">Immediate actions</p>
+            <div className="exec-primary-actions">
+              <Button
+                type="button"
+                className={`exec-action-primary ${shouldBoostCheckIn ? "exec-action-primary-urgent" : ""}`}
+                onClick={() => setCheckInOpen(true)}
+              >
+                <UserRoundCheck className="mr-2 h-4 w-4" />
+                Check-in Patient
+              </Button>
+              <Button
+                type="button"
+                className="exec-action-secondary"
+                onClick={() => setAddPatientOpen(true)}
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                Add Patient
+              </Button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="exec-action-panel">
+            <p className="exec-action-label">Desk tools</p>
+            <div className="exec-secondary-actions">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="exec-action-utility"
+                onClick={() => setBookAppointmentOpen(true)}
+              >
+                <CalendarClock className="mr-2 h-4 w-4" />
+                Book Appointment
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="exec-action-utility"
+                onClick={() => setNoShowOpen(true)}
+              >
+                <Workflow className="mr-2 h-4 w-4" />
+                Mark No-show
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="exec-action-utility"
+                onClick={() => setViewDoctorsOpen(true)}
+              >
+                <Stethoscope className="mr-2 h-4 w-4" />
+                View Doctors
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((item, index) => (
           <Card
             key={item.label}
-            className={`animate-fade-up stagger-${index + 1} flex items-center gap-4 p-5`}
+            className={`exec-metric-card exec-metric-${item.tone} animate-fade-up stagger-${index + 1}`}
           >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50">
-              <item.icon className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">
-                {item.label}
-              </p>
+            <CardContent className="exec-metric-content">
+              <div className="exec-metric-bg-icon" aria-hidden="true">
+                <item.icon className="h-full w-full" />
+              </div>
+
+              <div className="exec-metric-head">
+                <div className="exec-metric-copy">
+                  <p className="exec-metric-label">{item.label}</p>
+                  <p className="exec-metric-caption">{item.caption}</p>
+                </div>
+              </div>
+
               {summaryQuery.isLoading ? (
-                <Skeleton className="mt-1 h-7 w-16" />
+                <Skeleton className="mt-2 h-8 w-24" />
               ) : (
-                <>
-                  <p className="text-2xl font-bold text-slate-900">
-                    {item.value}
-                  </p>
-                  {item.note ? (
-                    <p className="mt-0.5 truncate text-xs text-slate-400">
-                      {item.note}
-                    </p>
-                  ) : null}
-                </>
+                <p className="exec-metric-value">{item.value}</p>
               )}
-            </div>
+
+              {item.note ? <p className="exec-metric-note">{item.note}</p> : null}
+            </CardContent>
           </Card>
         ))}
-      </div>
+      </section>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="animate-fade-up stagger-2 xl:col-span-1">
-          <CardHeader>
+      <section className="grid gap-4 xl:grid-cols-12">
+        <Card className="animate-fade-up xl:col-span-4">
+          <CardHeader className="pb-3">
+            <h3 className="text-base font-semibold text-slate-900">
+              Operational Pulse
+            </h3>
+            <CardDescription>
+              Completion and throughput snapshot for {selectedDateLabel}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-1">
+            <div className="exec-pulse-top">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Completion rate
+                </p>
+                <p className="mt-1 text-3xl font-semibold text-slate-900">
+                  {completionRate}%
+                </p>
+              </div>
+              <div className="rounded-xl bg-slate-100 px-3 py-2 text-right">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Longest wait
+                </p>
+                <p className="text-sm font-semibold text-slate-800">
+                  {maxWaitMinutes || 0} min
+                </p>
+              </div>
+            </div>
+
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-slate-700 via-slate-600 to-emerald-500 transition-all duration-500"
+                style={{ width: `${completionRate}%` }}
+              />
+            </div>
+
+            <div className="space-y-2.5">
+              {distributionRows.map((row) => (
+                <div key={row.label} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs text-slate-600">
+                    <span>{row.label}</span>
+                    <span className="font-semibold text-slate-800">{row.value}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className={`h-full rounded-full ${row.tone} transition-all duration-500`}
+                      style={{ width: `${Math.round((row.value / distributionMax) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="animate-fade-up xl:col-span-3">
+          <CardHeader className="pb-3">
             <h3 className="text-base font-semibold text-slate-900">
               Live Waiting Queue
             </h3>
             <CardDescription>{selectedDateLabel}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 pt-5">
+          <CardContent className="space-y-2.5 pt-1">
             {isBusy ? (
               <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
               </div>
             ) : null}
 
             {!isBusy && !waitingQueue.length ? (
-              <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+              <p className="exec-empty-state">
                 No patients currently waiting.
               </p>
             ) : null}
 
             {!isBusy && waitingQueue.length
-              ? waitingQueue.slice(0, 5).map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
-                  >
-                    <div>
+              ? waitingQueue.slice(0, 6).map((item) => (
+                  <div key={item.id} className="exec-queue-row">
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-900">
                         {item.patient.name}
                       </p>
-                      <p className="text-xs text-slate-500">
-                        {item.doctor.name}
-                      </p>
+                      <p className="text-xs text-slate-500">{item.doctor.name}</p>
                     </div>
-                    {item.waitMinutes === null ? (
-                      <Badge variant="default">N/A</Badge>
-                    ) : (
-                      <Badge
-                        variant={
-                          item.waitMinutes >= 20 ? "cancelled" : "waiting"
-                        }
+                    <div className="flex items-center gap-2">
+                      {item.waitMinutes === null ? (
+                        <Badge variant="default">N/A</Badge>
+                      ) : (
+                        <Badge
+                          variant={item.waitMinutes >= 20 ? "cancelled" : "waiting"}
+                        >
+                          {item.waitMinutes} min
+                        </Badge>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => inProgressMutation.mutate(item.id)}
+                        disabled={inProgressMutation.isPending}
                       >
-                        {item.waitMinutes} min
-                      </Badge>
-                    )}
+                        <Play className="mr-1 h-3.5 w-3.5" />
+                        In Progress
+                      </Button>
+                    </div>
                   </div>
                 ))
               : null}
           </CardContent>
         </Card>
 
-        <Card className="animate-fade-up stagger-3 xl:col-span-2">
-          <CardHeader>
+        <Card className="animate-fade-up xl:col-span-5">
+          <CardHeader className="pb-3">
             <h3 className="text-base font-semibold text-slate-900">
-              Next 60 Minutes
+              Upcoming Window
             </h3>
             <CardDescription>
-              Upcoming activity for selected date.
+              First 60-minute flow block for selected date.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 pt-5">
+          <CardContent className="space-y-2.5 pt-1">
             {isBusy ? (
               <div className="space-y-2">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
               </div>
             ) : null}
 
             {!isBusy && !nextHourTimeline.length ? (
-              <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+              <p className="exec-empty-state">
                 No appointments in the next 60 minutes.
               </p>
             ) : null}
 
             {!isBusy && nextHourTimeline.length
               ? nextHourTimeline.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
-                  >
+                  <div key={item.id} className="exec-timeline-row">
                     <div>
                       <p className="text-sm font-semibold text-slate-900">
                         {item.patient.name}
@@ -773,118 +972,129 @@ export function DashboardPage() {
                         with {item.doctor.name}
                       </p>
                     </div>
-                    <Badge variant={statusVariant(item.status)}>
-                      {item.status}
-                    </Badge>
+                    <Badge variant={statusVariant(item.status)}>{item.status}</Badge>
                   </div>
                 ))
               : null}
           </CardContent>
         </Card>
-      </div>
+      </section>
 
-      <Card className="animate-fade-up stagger-4">
-        <CardHeader>
-          <h3 className="text-base font-semibold text-slate-900">
-            Alert Center
-          </h3>
-          <CardDescription>
-            Operational exceptions that need attention.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-5">
-          {isBusy ? (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+      <section className="grid gap-4 xl:grid-cols-12">
+        <Card className="animate-fade-up xl:col-span-4">
+          <CardHeader className="pb-3">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              Risk Center
+            </h3>
+            <CardDescription>
+              Alerts and exceptions requiring intervention.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2.5 pt-1">
+            {isBusy ? (
+              <div className="space-y-2">
+                <Skeleton className="h-11 w-full" />
+                <Skeleton className="h-11 w-full" />
+              </div>
+            ) : null}
+
+            {!isBusy && !alertItems.length ? (
+              <p className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50 px-4 py-5 text-sm text-emerald-700">
+                No critical alerts detected for selected date.
+              </p>
+            ) : null}
+
+            {!isBusy && alertItems.length
+              ? alertItems.map((item, index) => (
+                  <div
+                    key={`${item.level}-${index}`}
+                    className="exec-alert-row"
+                  >
+                    <AlertTriangle
+                      className={`mt-0.5 h-4 w-4 ${item.level === "high" ? "text-rose-600" : "text-amber-600"}`}
+                    />
+                    <p className="text-[13px] text-slate-700">{item.message}</p>
+                  </div>
+                ))
+              : null}
+          </CardContent>
+        </Card>
+
+        <Card className="animate-fade-up xl:col-span-8">
+          <CardHeader className="pb-3">
+            <h3 className="text-base font-semibold text-slate-900">
+              Schedule Workspace
+            </h3>
+            <CardDescription>
+              {selectedDateLabel} timeline from today schedule endpoint.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-1">
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              <span className="font-medium text-slate-700">Date load:</span>
+              <span>{totalForDate} appointments</span>
+              <span className="text-slate-400">|</span>
+              <span>{waitingQueue.length} waiting</span>
+              <span className="text-slate-400">|</span>
+              <span>{inProgressCount} in progress</span>
             </div>
-          ) : null}
 
-          {!isBusy && !alertItems.length ? (
-            <p className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 px-4 py-6 text-sm text-emerald-700">
-              No critical alerts detected for selected date.
-            </p>
-          ) : null}
+            {scheduleQuery.isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            ) : null}
 
-          {!isBusy && alertItems.length
-            ? alertItems.map((item, index) => (
-                <div
-                  key={`${item.level}-${index}`}
-                  className="flex items-start gap-3 rounded-xl border border-app-outline-variant/40 bg-app-surface-low px-3 py-3"
-                >
-                  <AlertTriangle
-                    className={`mt-0.5 h-4 w-4 ${item.level === "high" ? "text-rose-600" : "text-amber-600"}`}
-                  />
-                  <p className="text-[13px] text-app-text">{item.message}</p>
-                </div>
-              ))
-            : null}
-        </CardContent>
-      </Card>
+            {!scheduleQuery.isLoading && !scheduleQuery.data?.length ? (
+              <p className="exec-empty-state">
+                No appointments scheduled for this day.
+              </p>
+            ) : null}
 
-      <Card className="animate-fade-up stagger-4">
-        <CardHeader>
-          <h3 className="text-base font-semibold text-app-text">
-            Today Schedule
-          </h3>
-          <CardDescription>
-            Full table sourced from today schedule endpoint.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 pt-5">
-          {scheduleQuery.isLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : null}
-          {!scheduleQuery.isLoading && !scheduleQuery.data?.length ? (
-            <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-[13px] text-app-text-muted">
-              No appointments scheduled today.
-            </p>
-          ) : null}
-
-          {scheduleQuery.data?.length ? (
-            <div className="overflow-x-auto">
-              <Table density="compact">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Patient</TableHead>
-                    <TableHead>Doctor</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {scheduleQuery.data.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        {new Date(item.date).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </TableCell>
-                      <TableCell>{item.patient.name}</TableCell>
-                      <TableCell>
-                        {item.doctor.name}{" "}
-                        <span className="text-[11px] text-app-text-muted">
-                          ({item.doctor.specialty})
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant(item.status)}>
-                          {item.status}
-                        </Badge>
-                      </TableCell>
+            {scheduleQuery.data?.length ? (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <Table density="compact">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Patient</TableHead>
+                      <TableHead>Doctor</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {scheduleQuery.data.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          {new Date(item.date).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </TableCell>
+                        <TableCell>{item.patient.name}</TableCell>
+                        <TableCell>
+                          {item.doctor.name}{" "}
+                          <span className="text-[11px] text-slate-500">
+                            ({item.doctor.specialty})
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusVariant(item.status)}>
+                            {item.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </section>
 
       <Modal
         open={checkInOpen}

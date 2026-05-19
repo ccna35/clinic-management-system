@@ -66,6 +66,12 @@ const allowedStatusTransitions: Record<AppointmentStatus, AppointmentStatus[]> =
     [AppointmentStatus.NO_SHOW]: []
 };
 
+const terminalStatuses = new Set<AppointmentStatus>([
+    AppointmentStatus.COMPLETED,
+    AppointmentStatus.CANCELLED,
+    AppointmentStatus.NO_SHOW
+]);
+
 function assertValidStatusTransition(fromStatus: AppointmentStatus, toStatus: AppointmentStatus): void {
     if (fromStatus === toStatus) {
         return;
@@ -150,6 +156,22 @@ function buildAppointmentWhere(query: ListAppointmentsQuery): Prisma.Appointment
             gte: dayStart,
             lte: dayEnd
         };
+    } else if (query.dateFrom || query.dateTo) {
+        const range: Prisma.DateTimeFilter = {};
+
+        if (query.dateFrom) {
+            const from = new Date(query.dateFrom);
+            from.setHours(0, 0, 0, 0);
+            range.gte = from;
+        }
+
+        if (query.dateTo) {
+            const to = new Date(query.dateTo);
+            to.setHours(23, 59, 59, 999);
+            range.lte = to;
+        }
+
+        where.date = range;
     }
 
     return where;
@@ -336,6 +358,13 @@ export async function updateAppointment(
     const nextPatientId = payload.patientId ?? existing.patientId;
     const nextDoctorId = payload.doctorId ?? existing.doctorId;
     const nextDate = payload.date ?? existing.date;
+
+    if (payload.date && terminalStatuses.has(existing.status)) {
+        throw new ApiError(
+            400,
+            "Completed, cancelled, and no-show appointments are locked and cannot be rescheduled"
+        );
+    }
 
     await Promise.all([ensurePatientExists(nextPatientId), ensureDoctorExists(nextDoctorId)]);
     await ensureNoDoctorTimeConflict(nextDoctorId, nextDate, existing.id);

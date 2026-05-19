@@ -27,6 +27,11 @@ const AppointmentsPage = lazy(() =>
     default: module.AppointmentsPage,
   })),
 );
+const CalendarPage = lazy(() =>
+  import("./pages/CalendarPage").then((module) => ({
+    default: module.CalendarPage,
+  })),
+);
 const PatientDetailsPage = lazy(() => import("./pages/PatientDetailsPage"));
 const ReceptionistsPage = lazy(() => import("./pages/ReceptionistsPage"));
 
@@ -54,6 +59,7 @@ function App() {
             <Route path="/patients/:id" element={<PatientDetailsPage />} />
             <Route path="/doctors" element={<DoctorsPage />} />
             <Route path="/appointments" element={<AppointmentsPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route element={<AdminRoute />}>
               <Route path="/receptionists" element={<ReceptionistsPage />} />
             </Route>

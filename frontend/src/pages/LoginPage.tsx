@@ -6,7 +6,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 import { getErrorMessage } from "../api/client";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 import { Button } from "../components/ui/button";
 import {
   Card,

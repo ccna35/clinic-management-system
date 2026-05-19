@@ -31,14 +31,29 @@ export const updateAppointmentStatusBodySchema = z.object({
 
 export const appointmentParamsSchema = idSchema;
 
-export const listAppointmentsQuerySchema = z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(10),
-    date: z.string().date().optional(),
-    status: z.nativeEnum(AppointmentStatus).optional(),
-    doctorId: z.string().uuid().optional(),
-    patientId: z.string().uuid().optional()
-});
+export const listAppointmentsQuerySchema = z
+    .object({
+        page: z.coerce.number().int().min(1).default(1),
+        limit: z.coerce.number().int().min(1).max(100).default(10),
+        date: z.string().date().optional(),
+        dateFrom: z.string().date().optional(),
+        dateTo: z.string().date().optional(),
+        status: z.nativeEnum(AppointmentStatus).optional(),
+        doctorId: z.string().uuid().optional(),
+        patientId: z.string().uuid().optional()
+    })
+    .refine(
+        (query) => {
+            if (!query.dateFrom || !query.dateTo) {
+                return true;
+            }
+
+            return query.dateFrom <= query.dateTo;
+        },
+        {
+            message: "dateFrom must be less than or equal to dateTo"
+        }
+    );
 
 export type CreateAppointmentInput = z.infer<typeof createAppointmentBodySchema>;
 export type UpdateAppointmentInput = z.infer<typeof updateAppointmentBodySchema>;
