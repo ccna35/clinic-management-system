@@ -164,7 +164,11 @@ function toIsoDate(value: string): string {
   return new Date(value).toISOString();
 }
 
-function inDateRange(appointmentDate: string, from: string, to: string): boolean {
+function inDateRange(
+  appointmentDate: string,
+  from: string,
+  to: string,
+): boolean {
   const day = appointmentDate.slice(0, 10);
 
   if (from && day < from) {
@@ -187,9 +191,9 @@ export function CalendarPage() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingAppointmentId, setEditingAppointmentId] = useState<string | null>(
-    null,
-  );
+  const [editingAppointmentId, setEditingAppointmentId] = useState<
+    string | null
+  >(null);
   const [laneDate, setLaneDate] = useState<string>(
     new Date().toISOString().slice(0, 10),
   );
@@ -309,9 +313,12 @@ export function CalendarPage() {
 
   const rescheduleMutation = useMutation({
     mutationFn: async ({ id, date }: { id: string; date: string }) => {
-      return api.patch<ApiResponse<CalendarAppointment>>(`/api/appointments/${id}`, {
-        date,
-      });
+      return api.patch<ApiResponse<CalendarAppointment>>(
+        `/api/appointments/${id}`,
+        {
+          date,
+        },
+      );
     },
     onSuccess: async () => {
       await Promise.all([
@@ -319,7 +326,9 @@ export function CalendarPage() {
         queryClient.invalidateQueries({ queryKey: ["appointments"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-schedule"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard-appointments-feed"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["dashboard-appointments-feed"],
+        }),
       ]);
     },
   });
@@ -345,7 +354,9 @@ export function CalendarPage() {
         queryClient.invalidateQueries({ queryKey: ["appointments"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-schedule"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard-appointments-feed"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["dashboard-appointments-feed"],
+        }),
       ]);
     },
     onError: (error) => {
@@ -381,7 +392,9 @@ export function CalendarPage() {
         queryClient.invalidateQueries({ queryKey: ["appointments"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-schedule"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard-appointments-feed"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["dashboard-appointments-feed"],
+        }),
       ]);
     },
     onError: (error) => {
@@ -471,7 +484,12 @@ export function CalendarPage() {
 
     const laneMap = new Map<
       string,
-      { id: string; name: string; specialty: string; appointments: CalendarAppointment[] }
+      {
+        id: string;
+        name: string;
+        specialty: string;
+        appointments: CalendarAppointment[];
+      }
     >();
 
     for (const doctor of doctorsQuery.data ?? []) {
@@ -526,7 +544,9 @@ export function CalendarPage() {
         <p className="calendar-event-subtitle" style={{ color: doctorColor }}>
           {appointment.doctor.name}
         </p>
-        {hasConflict ? <p className="calendar-event-warning">Conflict</p> : null}
+        {hasConflict ? (
+          <p className="calendar-event-warning">Conflict</p>
+        ) : null}
       </div>
     );
   }
@@ -735,7 +755,9 @@ export function CalendarPage() {
               <Label>Status</Label>
               <Select
                 value={statusFilter}
-                onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+                onValueChange={(value) =>
+                  setStatusFilter(value as StatusFilter)
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="All statuses" />
@@ -879,7 +901,8 @@ export function CalendarPage() {
                 headerToolbar={{
                   left: "prev,next today",
                   center: "title",
-                  right: "bookAppointment timeGridDay,timeGridWeek,dayGridMonth",
+                  right:
+                    "bookAppointment timeGridDay,timeGridWeek,dayGridMonth",
                 }}
                 buttonText={{
                   today: "Today",
@@ -940,7 +963,9 @@ export function CalendarPage() {
 
       <Card className="border-slate-200/80 bg-white/90">
         <CardHeader className="pb-2">
-          <h3 className="text-base font-semibold text-slate-900">Doctor Lanes</h3>
+          <h3 className="text-base font-semibold text-slate-900">
+            Doctor Lanes
+          </h3>
           <p className="text-sm text-slate-500">
             Resource-style daily lanes by doctor for rapid operational triage.
           </p>
@@ -978,7 +1003,8 @@ export function CalendarPage() {
                         }`}
                         style={{
                           borderLeft: `4px solid ${
-                            doctorColorMap.get(appointment.doctor.id) ?? "#64748b"
+                            doctorColorMap.get(appointment.doctor.id) ??
+                            "#64748b"
                           }`,
                         }}
                         onClick={() => setSelectedEvent(appointment)}
